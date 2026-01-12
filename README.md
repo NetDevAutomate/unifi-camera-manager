@@ -1,28 +1,62 @@
 # UniFi Camera Manager
 
-CLI tool to manage UniFi Protect cameras, including third-party ONVIF cameras.
+CLI tool to manage UniFi Protect cameras, including third-party ONVIF cameras and AXIS camera log retrieval.
 
 ## Installation
 
 ```bash
 cd unifi-camera-manager
 uv sync
+
+# Install shell completions (bash, zsh, fish)
+uv run ucam --install-completion
 ```
 
 ## Configuration
 
-Create a `.env` file with your UniFi Protect credentials:
+### Environment Variables
+
+Create a `.env` file or export environment variables:
 
 ```bash
+# UniFi Protect NVR
 export UFP_USERNAME=your_username
 export UFP_PASSWORD=your_password
 export UFP_ADDRESS=192.168.x.x
 export UFP_PORT=443
 export UFP_SSL_VERIFY=false
-export UFP_API_KEY=your_api_key  # Optional
+
+# For ONVIF camera config interpolation
+export AXIS_ADMIN_USERNAME=admin
+export AXIS_ADMIN_PASSWORD=your_camera_password
 ```
 
-Or use the parent directory's `.env` file (symlinked automatically).
+### Camera Configuration File
+
+Create `~/.config/ucam/config.yaml` (or `./config.yaml`) with camera definitions:
+
+```yaml
+devices:
+  - name: Front Door
+    address: 192.168.1.100
+    username: ${AXIS_ADMIN_USERNAME}
+    password: ${AXIS_ADMIN_PASSWORD}
+    port: 80
+    vendor: AXIS
+    model: P3245-LV
+    type: camera
+
+  - name: Back Yard
+    address: 192.168.1.101
+    username: ${AXIS_ADMIN_USERNAME}
+    password: ${AXIS_ADMIN_PASSWORD}
+    port: 80
+    vendor: AXIS
+    model: P3247
+    type: camera
+```
+
+Environment variables in `${VAR}` syntax are interpolated at load time.
 
 ## Usage
 
@@ -81,6 +115,52 @@ uv run ucam unadopt CAMERA_ID --force
 uv run ucam reboot CAMERA_ID
 ```
 
+### ONVIF Direct Commands
+
+Direct communication with ONVIF cameras (bypassing UniFi Protect):
+
+```bash
+# Get camera info
+uv run ucam onvif info --camera "Front Door"
+
+# List video profiles
+uv run ucam onvif profiles --camera "Front Door"
+
+# Get stream URIs
+uv run ucam onvif streams --camera "Front Door"
+
+# Get image settings
+uv run ucam onvif image --camera "Front Door"
+
+# PTZ control (if supported)
+uv run ucam onvif ptz status --camera "Front Door"
+uv run ucam onvif ptz presets --camera "Front Door"
+
+# List available ONVIF services
+uv run ucam onvif services --camera "Front Door"
+```
+
+### AXIS Camera Logs
+
+Retrieve logs from AXIS cameras via VAPIX API:
+
+```bash
+# Get system logs
+uv run ucam logs system --camera "Front Door"
+
+# Get access logs
+uv run ucam logs access --camera "Front Door"
+
+# Get audit logs
+uv run ucam logs audit --camera "Front Door"
+
+# Get all logs combined
+uv run ucam logs all --camera "Front Door"
+
+# Limit number of entries
+uv run ucam logs system --camera "Front Door" --lines 50
+```
+
 ## Adding Third-Party ONVIF Cameras
 
 UniFi Protect 5.0+ supports third-party ONVIF cameras. To add one:
@@ -124,7 +204,7 @@ UniFi Protect 5.0+ supports third-party ONVIF cameras. To add one:
 ## Supported Camera Brands
 
 Tested with:
-- AXIS (M3216-LVE, I8016-LVE)
+- AXIS (M3216-LVE, I8016-LVE, P3245-LV)
 - Any ONVIF-compatible camera should work
 
 ## Project Structure
@@ -133,13 +213,23 @@ Tested with:
 unifi-camera-manager/
 ├── pyproject.toml
 ├── README.md
-└── src/
-    └── unifi_camera_manager/
-        ├── __init__.py
-        ├── cli.py           # Typer CLI application
-        ├── client.py        # UniFi Protect API wrapper
-        ├── config.py        # Configuration management
-        └── onvif_discovery.py  # ONVIF camera verification
+├── CLAUDE.md               # Claude Code guidance
+├── config.yaml             # Camera configuration (example)
+├── src/
+│   └── unifi_camera_manager/
+│       ├── __init__.py
+│       ├── cli.py          # Typer CLI application
+│       ├── client.py       # UniFi Protect API wrapper
+│       ├── config.py       # XDG-compliant configuration
+│       ├── models.py       # Pydantic data models
+│       ├── axis_logs.py    # AXIS VAPIX log retrieval
+│       ├── onvif_manager.py    # ONVIF camera operations
+│       └── onvif_discovery.py  # ONVIF camera verification
+└── tests/
+    ├── conftest.py         # Shared pytest fixtures
+    ├── test_config.py      # Configuration tests
+    ├── test_models.py      # Model validation tests
+    └── test_axis_logs.py   # Log retrieval tests
 ```
 
 ## Development
@@ -151,8 +241,15 @@ uv sync
 # Run CLI
 uv run ucam --help
 
-# Run with custom .env file
-uv run ucam list -e /path/to/.env
+# Run tests
+uv run pytest -v
+
+# Run linting
+uv run ruff check src/
+uv run ruff format src/
+
+# Run type checking
+uv run mypy src/
 ```
 
 ## License

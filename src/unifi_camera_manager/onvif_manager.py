@@ -1,146 +1,76 @@
 """Comprehensive ONVIF camera management.
 
-Provides full ONVIF camera control including:
-- Device information and capabilities
-- Video profiles and stream management
-- PTZ control (pan/tilt/zoom)
-- Image settings (brightness, contrast, etc.)
-- Event subscriptions
-- Network configuration
+This module provides full ONVIF camera control including device information,
+video profiles, stream management, PTZ control, image settings, and system
+operations through the ONVIF protocol.
 """
 
-import asyncio
 import os
-from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from typing import Any
 
 import onvif
 from onvif import ONVIFCamera
 
 from .config import OnvifCameraConfig
+from .models import (
+    CameraCapabilities,
+    ImageSettings,
+    NetworkConfig,
+    OnvifService,
+    PTZDirection,
+    PTZPreset,
+    PTZStatus,
+    StreamInfo,
+    SystemInfo,
+    VideoProfile,
+)
 
 # Get the correct WSDL path from the installed onvif package
 WSDL_DIR = os.path.join(os.path.dirname(onvif.__file__), "wsdl")
 
 
-class PTZDirection(Enum):
-    """PTZ movement directions."""
-
-    UP = "up"
-    DOWN = "down"
-    LEFT = "left"
-    RIGHT = "right"
-    ZOOM_IN = "zoom_in"
-    ZOOM_OUT = "zoom_out"
-
-
-@dataclass
-class VideoProfile:
-    """Video profile configuration."""
-
-    token: str
-    name: str
-    encoding: str
-    resolution_width: int
-    resolution_height: int
-    frame_rate: float
-    bitrate: int | None = None
-    quality: float | None = None
-
-
-@dataclass
-class StreamInfo:
-    """Stream information."""
-
-    uri: str
-    profile_token: str
-    transport: str = "RTSP"
-
-
-@dataclass
-class ImageSettings:
-    """Image settings for a camera."""
-
-    brightness: float | None = None
-    contrast: float | None = None
-    saturation: float | None = None
-    sharpness: float | None = None
-    ir_cut_filter: str | None = None
-    wide_dynamic_range: bool | None = None
-    backlight_compensation: bool | None = None
-
-
-@dataclass
-class PTZStatus:
-    """PTZ position and status."""
-
-    pan: float
-    tilt: float
-    zoom: float
-    moving: bool = False
-
-
-@dataclass
-class CameraCapabilities:
-    """Camera capabilities and features."""
-
-    has_ptz: bool = False
-    has_audio: bool = False
-    has_relay: bool = False
-    has_analytics: bool = False
-    has_recording: bool = False
-    has_events: bool = False
-    supported_encodings: list[str] = field(default_factory=list)
-    max_profiles: int = 0
-
-
-@dataclass
-class NetworkConfig:
-    """Camera network configuration."""
-
-    ip_address: str
-    subnet_mask: str
-    gateway: str
-    dns_primary: str | None = None
-    dns_secondary: str | None = None
-    dhcp_enabled: bool = False
-    ntp_servers: list[str] = field(default_factory=list)
-
-
-@dataclass
-class SystemInfo:
-    """Extended system information."""
-
-    manufacturer: str
-    model: str
-    firmware_version: str
-    serial_number: str
-    hardware_id: str
-    system_date_time: datetime | None = None
-    uptime_seconds: int | None = None
-
-
 class OnvifCameraManager:
-    """Comprehensive ONVIF camera management class."""
+    """Comprehensive ONVIF camera management class.
 
-    def __init__(self, config: OnvifCameraConfig):
+    Provides a unified interface for interacting with ONVIF-compliant cameras,
+    including device management, media services, PTZ control, and imaging.
+
+    Attributes:
+        config: ONVIF camera configuration with credentials.
+        is_connected: Whether the camera connection is active.
+
+    Example:
+        >>> config = OnvifCameraConfig(ip_address="192.168.1.10", username="admin", password="pass")
+        >>> async with OnvifCamera(config) as camera:
+        ...     info = await camera.get_system_info()
+        ...     print(f"Camera: {info.manufacturer} {info.model}")
+    """
+
+    def __init__(self, config: OnvifCameraConfig) -> None:
         """Initialize the camera manager.
 
         Args:
-            config: ONVIF camera configuration.
+            config: ONVIF camera configuration with connection details.
         """
         self.config = config
         self._camera: ONVIFCamera | None = None
-        self._device_service = None
-        self._media_service = None
-        self._ptz_service = None
-        self._imaging_service = None
+        self._device_service: Any = None
+        self._media_service: Any = None
+        self._ptz_service: Any = None
+        self._imaging_service: Any = None
         self._profiles: list[Any] = []
 
     async def connect(self) -> None:
-        """Connect to the camera and initialize services."""
+        """Connect to the camera and initialize ONVIF services.
+
+        Establishes connection to the camera and initializes core services
+        (device management, media). Optional services (PTZ, imaging) are
+        initialized if available.
+
+        Raises:
+            Exception: If connection or service initialization fails.
+        """
         self._camera = ONVIFCamera(
             self.config.ip_address,
             self.config.port,
@@ -177,7 +107,14 @@ class OnvifCameraManager:
         self._profiles = await self._media_service.GetProfiles()
 
     async def disconnect(self) -> None:
-        """Disconnect from the camera."""
+        """Disconnect from the camera and clean up resources."""
+        # Close the ONVIFCamera and its aiohttp sessions
+        if self._camera is not None:
+            try:
+                await self._camera.close()
+            except Exception:
+                pass  # Best effort cleanup
+
         self._camera = None
         self._device_service = None
         self._media_service = None
@@ -187,11 +124,19 @@ class OnvifCameraManager:
 
     @property
     def is_connected(self) -> bool:
-        """Check if connected to the camera."""
+        """Check if connected to the camera.
+
+        Returns:
+            True if connected, False otherwise.
+        """
         return self._camera is not None
 
     def _ensure_connected(self) -> None:
-        """Raise an error if not connected."""
+        """Verify connection is active.
+
+        Raises:
+            RuntimeError: If not connected to camera.
+        """
         if not self.is_connected:
             raise RuntimeError("Not connected to camera. Call connect() first.")
 
@@ -200,7 +145,14 @@ class OnvifCameraManager:
     # =========================================================================
 
     async def get_system_info(self) -> SystemInfo:
-        """Get comprehensive system information."""
+        """Get comprehensive system information from the camera.
+
+        Returns:
+            SystemInfo with manufacturer, model, firmware, and other details.
+
+        Raises:
+            RuntimeError: If not connected to camera.
+        """
         self._ensure_connected()
 
         device_info = await self._device_service.GetDeviceInformation()
@@ -232,7 +184,14 @@ class OnvifCameraManager:
         )
 
     async def get_capabilities(self) -> CameraCapabilities:
-        """Get camera capabilities."""
+        """Get camera capabilities and supported features.
+
+        Returns:
+            CameraCapabilities with feature flags and supported encodings.
+
+        Raises:
+            RuntimeError: If not connected to camera.
+        """
         self._ensure_connected()
 
         capabilities = CameraCapabilities()
@@ -259,20 +218,35 @@ class OnvifCameraManager:
             pass
 
         # Get supported encodings from profiles
+        supported_encodings: list[str] = []
         for profile in self._profiles:
             if hasattr(profile, "VideoEncoderConfiguration"):
                 enc = profile.VideoEncoderConfiguration
                 if hasattr(enc, "Encoding") and enc.Encoding:
                     encoding = str(enc.Encoding)
-                    if encoding not in capabilities.supported_encodings:
-                        capabilities.supported_encodings.append(encoding)
+                    if encoding not in supported_encodings:
+                        supported_encodings.append(encoding)
 
-        capabilities.max_profiles = len(self._profiles)
-
-        return capabilities
+        return CameraCapabilities(
+            has_ptz=capabilities.has_ptz,
+            has_audio=capabilities.has_audio,
+            has_relay=capabilities.has_relay,
+            has_analytics=capabilities.has_analytics,
+            has_recording=capabilities.has_recording,
+            has_events=capabilities.has_events,
+            supported_encodings=supported_encodings,
+            max_profiles=len(self._profiles),
+        )
 
     async def get_scopes(self) -> list[str]:
-        """Get device scopes (ONVIF profile information)."""
+        """Get device scopes (ONVIF profile information).
+
+        Returns:
+            List of ONVIF scope URIs describing device capabilities.
+
+        Raises:
+            RuntimeError: If not connected to camera.
+        """
         self._ensure_connected()
         scopes = await self._device_service.GetScopes()
         return [str(scope.ScopeItem) for scope in scopes]
@@ -282,10 +256,17 @@ class OnvifCameraManager:
     # =========================================================================
 
     async def get_profiles(self) -> list[VideoProfile]:
-        """Get all video profiles."""
+        """Get all video profiles configured on the camera.
+
+        Returns:
+            List of VideoProfile objects with encoding and resolution details.
+
+        Raises:
+            RuntimeError: If not connected to camera.
+        """
         self._ensure_connected()
 
-        profiles = []
+        profiles: list[VideoProfile] = []
         for profile in self._profiles:
             if not hasattr(profile, "VideoEncoderConfiguration"):
                 continue
@@ -313,7 +294,14 @@ class OnvifCameraManager:
         return profiles
 
     def _fix_uri(self, uri: str) -> str:
-        """Fix URIs that contain 127.0.0.1 or localhost."""
+        """Fix URIs that contain 127.0.0.1 or localhost.
+
+        Args:
+            uri: Original URI that may contain localhost references.
+
+        Returns:
+            Fixed URI with actual camera IP address.
+        """
         if not uri:
             return uri
         uri = uri.replace("127.0.0.1", self.config.ip_address)
@@ -321,10 +309,16 @@ class OnvifCameraManager:
         return uri
 
     async def get_stream_uri(self, profile_token: str | None = None) -> StreamInfo:
-        """Get RTSP stream URI for a profile.
+        """Get RTSP stream URI for a video profile.
 
         Args:
-            profile_token: Profile token. Uses first profile if None.
+            profile_token: Profile token to use. If None, uses the first profile.
+
+        Returns:
+            StreamInfo with RTSP URI and profile details.
+
+        Raises:
+            RuntimeError: If not connected or no profiles available.
         """
         self._ensure_connected()
 
@@ -349,10 +343,17 @@ class OnvifCameraManager:
         )
 
     async def get_all_stream_uris(self) -> list[StreamInfo]:
-        """Get stream URIs for all profiles."""
+        """Get stream URIs for all video profiles.
+
+        Returns:
+            List of StreamInfo for each available profile.
+
+        Raises:
+            RuntimeError: If not connected to camera.
+        """
         self._ensure_connected()
 
-        streams = []
+        streams: list[StreamInfo] = []
         for profile in self._profiles:
             try:
                 stream = await self.get_stream_uri(profile.token)
@@ -363,10 +364,16 @@ class OnvifCameraManager:
         return streams
 
     async def get_snapshot_uri(self, profile_token: str | None = None) -> str | None:
-        """Get snapshot URI for a profile.
+        """Get snapshot URI for capturing still images.
 
         Args:
-            profile_token: Profile token. Uses first profile if None.
+            profile_token: Profile token to use. If None, uses the first profile.
+
+        Returns:
+            Snapshot URI string or None if not available.
+
+        Raises:
+            RuntimeError: If not connected to camera.
         """
         self._ensure_connected()
 
@@ -386,11 +393,22 @@ class OnvifCameraManager:
     # =========================================================================
 
     async def has_ptz(self) -> bool:
-        """Check if camera supports PTZ."""
+        """Check if camera supports PTZ control.
+
+        Returns:
+            True if PTZ service is available.
+        """
         return self._ptz_service is not None
 
     async def get_ptz_status(self, profile_token: str | None = None) -> PTZStatus | None:
-        """Get current PTZ position and status."""
+        """Get current PTZ position and movement status.
+
+        Args:
+            profile_token: Profile token to use. If None, uses the first profile.
+
+        Returns:
+            PTZStatus with position coordinates or None if PTZ unavailable.
+        """
         if not self._ptz_service or not self._profiles:
             return None
 
@@ -415,12 +433,15 @@ class OnvifCameraManager:
         speed: float = 0.5,
         profile_token: str | None = None,
     ) -> bool:
-        """Move the camera in a direction.
+        """Move the camera in a specified direction.
 
         Args:
-            direction: Direction to move.
-            speed: Speed of movement (0.0 to 1.0).
-            profile_token: Profile token to use.
+            direction: Direction to move (UP, DOWN, LEFT, RIGHT, ZOOM_IN, ZOOM_OUT).
+            speed: Movement speed from 0.0 to 1.0.
+            profile_token: Profile token to use. If None, uses the first profile.
+
+        Returns:
+            True if movement command was sent successfully.
         """
         if not self._ptz_service or not self._profiles:
             return False
@@ -428,7 +449,7 @@ class OnvifCameraManager:
         token = profile_token or self._profiles[0].token
         speed = max(0.0, min(1.0, speed))
 
-        velocity = {"PanTilt": {"x": 0.0, "y": 0.0}, "Zoom": {"x": 0.0}}
+        velocity: dict[str, Any] = {"PanTilt": {"x": 0.0, "y": 0.0}, "Zoom": {"x": 0.0}}
 
         if direction == PTZDirection.UP:
             velocity["PanTilt"]["y"] = speed
@@ -452,7 +473,14 @@ class OnvifCameraManager:
             return False
 
     async def ptz_stop(self, profile_token: str | None = None) -> bool:
-        """Stop PTZ movement."""
+        """Stop all PTZ movement.
+
+        Args:
+            profile_token: Profile token to use. If None, uses the first profile.
+
+        Returns:
+            True if stop command was sent successfully.
+        """
         if not self._ptz_service or not self._profiles:
             return False
 
@@ -469,7 +497,15 @@ class OnvifCameraManager:
     async def ptz_goto_preset(
         self, preset_token: str, profile_token: str | None = None
     ) -> bool:
-        """Move to a PTZ preset position."""
+        """Move camera to a saved PTZ preset position.
+
+        Args:
+            preset_token: Token of the preset to move to.
+            profile_token: Profile token to use. If None, uses the first profile.
+
+        Returns:
+            True if goto command was sent successfully.
+        """
         if not self._ptz_service or not self._profiles:
             return False
 
@@ -483,10 +519,15 @@ class OnvifCameraManager:
         except Exception:
             return False
 
-    async def get_ptz_presets(
-        self, profile_token: str | None = None
-    ) -> list[dict[str, str]]:
-        """Get list of PTZ presets."""
+    async def get_ptz_presets(self, profile_token: str | None = None) -> list[PTZPreset]:
+        """Get list of saved PTZ preset positions.
+
+        Args:
+            profile_token: Profile token to use. If None, uses the first profile.
+
+        Returns:
+            List of PTZPreset objects with token and name.
+        """
         if not self._ptz_service or not self._profiles:
             return []
 
@@ -495,7 +536,7 @@ class OnvifCameraManager:
         try:
             presets = await self._ptz_service.GetPresets({"ProfileToken": token})
             return [
-                {"token": p.token, "name": p.Name or p.token}
+                PTZPreset(token=p.token, name=p.Name or p.token)
                 for p in presets
                 if hasattr(p, "token")
             ]
@@ -503,7 +544,14 @@ class OnvifCameraManager:
             return []
 
     async def ptz_home(self, profile_token: str | None = None) -> bool:
-        """Move PTZ to home position."""
+        """Move PTZ to home position.
+
+        Args:
+            profile_token: Profile token to use. If None, uses the first profile.
+
+        Returns:
+            True if home command was sent successfully.
+        """
         if not self._ptz_service or not self._profiles:
             return False
 
@@ -522,7 +570,14 @@ class OnvifCameraManager:
     async def get_image_settings(
         self, video_source_token: str | None = None
     ) -> ImageSettings | None:
-        """Get current image settings."""
+        """Get current image settings from the camera.
+
+        Args:
+            video_source_token: Video source to query. If None, uses first profile.
+
+        Returns:
+            ImageSettings with brightness, contrast, etc. or None if unavailable.
+        """
         if not self._imaging_service:
             return None
 
@@ -574,12 +629,15 @@ class OnvifCameraManager:
         value: float | bool,
         video_source_token: str | None = None,
     ) -> bool:
-        """Set an image setting.
+        """Set an image setting on the camera.
 
         Args:
             setting: Setting name (brightness, contrast, saturation, sharpness).
-            value: Value to set.
-            video_source_token: Video source token.
+            value: Value to set (typically 0-100 for most settings).
+            video_source_token: Video source to configure. If None, uses first profile.
+
+        Returns:
+            True if setting was applied successfully.
         """
         if not self._imaging_service:
             return False
@@ -619,7 +677,14 @@ class OnvifCameraManager:
     # =========================================================================
 
     async def reboot(self) -> bool:
-        """Reboot the camera."""
+        """Reboot the camera.
+
+        Returns:
+            True if reboot command was sent successfully.
+
+        Raises:
+            RuntimeError: If not connected to camera.
+        """
         self._ensure_connected()
 
         try:
@@ -633,6 +698,12 @@ class OnvifCameraManager:
 
         Args:
             hard_reset: If True, performs a hard reset (may not be reversible).
+
+        Returns:
+            True if reset command was sent successfully.
+
+        Raises:
+            RuntimeError: If not connected to camera.
         """
         self._ensure_connected()
 
@@ -645,7 +716,14 @@ class OnvifCameraManager:
             return False
 
     async def get_network_config(self) -> NetworkConfig | None:
-        """Get network configuration."""
+        """Get network configuration from the camera.
+
+        Returns:
+            NetworkConfig with IP address and network settings or None if unavailable.
+
+        Raises:
+            RuntimeError: If not connected to camera.
+        """
         self._ensure_connected()
 
         try:
@@ -669,7 +747,17 @@ class OnvifCameraManager:
             return None
 
     async def set_hostname(self, hostname: str) -> bool:
-        """Set the camera hostname."""
+        """Set the camera hostname.
+
+        Args:
+            hostname: New hostname for the camera.
+
+        Returns:
+            True if hostname was set successfully.
+
+        Raises:
+            RuntimeError: If not connected to camera.
+        """
         self._ensure_connected()
 
         try:
@@ -678,36 +766,68 @@ class OnvifCameraManager:
         except Exception:
             return False
 
-    async def get_services(self) -> list[dict[str, str]]:
-        """Get list of available ONVIF services."""
+    async def get_services(self) -> list[OnvifService]:
+        """Get list of available ONVIF services on the camera.
+
+        Returns:
+            List of OnvifService objects with namespace and endpoint details.
+
+        Raises:
+            RuntimeError: If not connected to camera.
+        """
         self._ensure_connected()
 
         try:
             services = await self._device_service.GetServices({"IncludeCapability": False})
             return [
-                {
-                    "namespace": s.Namespace,
-                    "xaddr": self._fix_uri(s.XAddr),
-                    "version": f"{s.Version.Major}.{s.Version.Minor}"
+                OnvifService(
+                    namespace=s.Namespace,
+                    xaddr=self._fix_uri(s.XAddr),
+                    version=f"{s.Version.Major}.{s.Version.Minor}"
                     if hasattr(s, "Version")
                     else "Unknown",
-                }
+                )
                 for s in services
             ]
         except Exception:
             return []
 
 
-# Convenience context manager
 class OnvifCamera:
-    """Context manager for ONVIF camera connections."""
+    """Async context manager for ONVIF camera connections.
 
-    def __init__(self, config: OnvifCameraConfig):
+    Provides automatic connection management with proper cleanup.
+
+    Example:
+        >>> config = OnvifCameraConfig(ip_address="192.168.1.10", username="admin", password="pass")
+        >>> async with OnvifCamera(config) as camera:
+        ...     profiles = await camera.get_profiles()
+        ...     for p in profiles:
+        ...         print(f"{p.name}: {p.resolution_width}x{p.resolution_height}")
+    """
+
+    def __init__(self, config: OnvifCameraConfig) -> None:
+        """Initialize the context manager.
+
+        Args:
+            config: ONVIF camera configuration with connection details.
+        """
         self.manager = OnvifCameraManager(config)
 
     async def __aenter__(self) -> OnvifCameraManager:
+        """Connect to camera on context entry.
+
+        Returns:
+            Connected OnvifCameraManager instance.
+        """
         await self.manager.connect()
         return self.manager
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
+        """Disconnect from camera on context exit."""
         await self.manager.disconnect()

@@ -1,39 +1,43 @@
-"""ONVIF camera discovery and verification."""
+"""ONVIF camera discovery and verification.
+
+This module provides functions for verifying ONVIF camera accessibility,
+retrieving device information, and checking network connectivity.
+"""
 
 import asyncio
 import os
-from dataclasses import dataclass
 
 import onvif
 from onvif import ONVIFCamera
 
 from .config import OnvifCameraConfig
+from .models import OnvifCameraInfo
 
 # Get the correct WSDL path from the installed onvif package
 WSDL_DIR = os.path.join(os.path.dirname(onvif.__file__), "wsdl")
 
 
-@dataclass
-class OnvifCameraInfo:
-    """Information retrieved from an ONVIF camera."""
-
-    manufacturer: str
-    model: str
-    firmware_version: str
-    serial_number: str
-    hardware_id: str
-    is_accessible: bool
-    error: str | None = None
-
-
 async def verify_onvif_camera(config: OnvifCameraConfig) -> OnvifCameraInfo:
-    """Verify an ONVIF camera is accessible and get its information.
+    """Verify an ONVIF camera is accessible and retrieve its information.
+
+    Connects to an ONVIF camera using the provided configuration and
+    retrieves basic device information including manufacturer, model,
+    firmware version, and serial number.
 
     Args:
-        config: ONVIF camera configuration.
+        config: ONVIF camera configuration with IP address and credentials.
 
     Returns:
-        OnvifCameraInfo with camera details or error information.
+        OnvifCameraInfo with camera details if accessible, or error
+        information if connection failed.
+
+    Example:
+        >>> config = OnvifCameraConfig(ip_address="192.168.1.10", username="admin", password="pass")
+        >>> info = await verify_onvif_camera(config)
+        >>> if info.is_accessible:
+        ...     print(f"Found: {info.manufacturer} {info.model}")
+        ... else:
+        ...     print(f"Error: {info.error}")
     """
     try:
         # Create ONVIF camera instance with correct WSDL path
@@ -75,11 +79,20 @@ async def verify_onvif_camera(config: OnvifCameraConfig) -> OnvifCameraInfo:
 async def get_onvif_stream_uri(config: OnvifCameraConfig) -> str | None:
     """Get the RTSP stream URI from an ONVIF camera.
 
+    Connects to the camera and retrieves the RTSP stream URI for
+    the first available video profile.
+
     Args:
-        config: ONVIF camera configuration.
+        config: ONVIF camera configuration with IP address and credentials.
 
     Returns:
-        RTSP stream URI or None if not available.
+        RTSP stream URI string or None if unavailable.
+
+    Example:
+        >>> config = OnvifCameraConfig(ip_address="192.168.1.10", username="admin", password="pass")
+        >>> uri = await get_onvif_stream_uri(config)
+        >>> if uri:
+        ...     print(f"Stream: {uri}")
     """
     try:
         camera = ONVIFCamera(
@@ -115,12 +128,20 @@ async def get_onvif_stream_uri(config: OnvifCameraConfig) -> str | None:
 async def check_camera_connectivity(ip_address: str, port: int = 80) -> bool:
     """Check if a camera is reachable on the network.
 
+    Attempts to establish a TCP connection to the camera on the
+    specified port to verify network connectivity.
+
     Args:
-        ip_address: Camera IP address.
+        ip_address: Camera IP address to check.
         port: Port to check (default 80 for HTTP/ONVIF).
 
     Returns:
-        True if camera is reachable.
+        True if camera is reachable, False otherwise.
+
+    Example:
+        >>> is_online = await check_camera_connectivity("192.168.1.10")
+        >>> if is_online:
+        ...     print("Camera is online")
     """
     try:
         _, writer = await asyncio.wait_for(
@@ -130,5 +151,5 @@ async def check_camera_connectivity(ip_address: str, port: int = 80) -> bool:
         writer.close()
         await writer.wait_closed()
         return True
-    except (asyncio.TimeoutError, OSError):
+    except (TimeoutError, OSError):
         return False

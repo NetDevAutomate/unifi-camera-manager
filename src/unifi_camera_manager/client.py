@@ -1,52 +1,61 @@
-"""UniFi Protect API client wrapper."""
+"""UniFi Protect API client wrapper.
 
+This module provides an async client for interacting with UniFi Protect NVRs,
+supporting camera management operations like listing, adoption, and control.
+"""
+
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from datetime import datetime
-from typing import AsyncIterator
 
 from uiprotect import ProtectApiClient
 from uiprotect.data import Camera, ModelType
 
 from .config import ProtectConfig
+from .models import CameraInfo, NvrInfo
 
 
-@dataclass
-class CameraInfo:
-    """Simplified camera information."""
+def camera_info_from_protect(camera: Camera) -> CameraInfo:
+    """Create CameraInfo from a uiprotect Camera object.
 
-    id: str
-    name: str
-    type: str
-    host: str | None
-    is_adopted: bool
-    state: str
-    last_seen: datetime | None
-    is_third_party: bool
+    Args:
+        camera: Camera object from uiprotect library.
 
-    @classmethod
-    def from_camera(cls, camera: Camera) -> "CameraInfo":
-        """Create CameraInfo from a uiprotect Camera object."""
-        # Determine if it's a third-party camera (non-UVC prefix)
-        camera_type = str(camera.type) if camera.type else "Unknown"
-        is_third_party = not camera_type.startswith("UVC")
+    Returns:
+        CameraInfo with extracted camera data.
+    """
+    camera_type = str(camera.type) if camera.type else "Unknown"
+    is_third_party = not camera_type.startswith("UVC")
 
-        return cls(
-            id=camera.id,
-            name=camera.name,
-            type=camera_type,
-            host=camera.host if hasattr(camera, "host") else None,
-            is_adopted=camera.is_adopted,
-            state=str(camera.state) if camera.state else "Unknown",
-            last_seen=camera.last_seen if hasattr(camera, "last_seen") else None,
-            is_third_party=is_third_party,
-        )
+    return CameraInfo(
+        id=camera.id,
+        name=camera.name,
+        type=camera_type,
+        host=str(camera.host) if hasattr(camera, "host") and camera.host else None,
+        is_adopted=camera.is_adopted,
+        state=str(camera.state) if camera.state else "Unknown",
+        last_seen=camera.last_seen if hasattr(camera, "last_seen") else None,
+        is_third_party=is_third_party,
+    )
 
 
 class UnifiProtectClient:
-    """Wrapper around uiprotect ProtectApiClient with context management."""
+    """Wrapper around uiprotect ProtectApiClient with context management.
 
-    def __init__(self, config: ProtectConfig, include_unadopted: bool = True):
+    Provides a simplified interface for common UniFi Protect operations
+    with proper async context management and error handling.
+
+    Attributes:
+        config: UniFi Protect connection configuration.
+        include_unadopted: Whether to include unadopted devices in queries.
+
+    Example:
+        >>> async with get_protect_client(config) as client:
+        ...     cameras = await client.list_cameras()
+        ...     for cam in cameras:
+        ...         print(f"{cam.name}: {cam.host}")
+    """
+
+    def __init__(self, config: ProtectConfig, include_unadopted: bool = True) -> None:
         """Initialize the client.
 
         Args:
@@ -58,7 +67,11 @@ class UnifiProtectClient:
         self._client: ProtectApiClient | None = None
 
     async def connect(self) -> None:
-        """Connect to UniFi Protect and initialize the client."""
+        """Connect to UniFi Protect and initialize the client.
+
+        Raises:
+            Exception: If connection fails.
+        """
         self._client = ProtectApiClient(
             host=self.config.address,
             port=self.config.port,
@@ -70,40 +83,69 @@ class UnifiProtectClient:
         await self._client.update()
 
     async def disconnect(self) -> None:
-        """Disconnect from UniFi Protect."""
+        """Disconnect from UniFi Protect and close the session."""
         if self._client:
             try:
-                await self._client.async_disconnect()
+                await self._client.async_disconnect_ws()
             except Exception:
-                pass  # Ignore disconnect errors
+                pass  # Ignore websocket disconnect errors
+            try:
+                await self._client.close_session()
+            except Exception:
+                pass  # Ignore session close errors
             self._client = None
 
     @property
     def client(self) -> ProtectApiClient:
-        """Get the underlying client, raising if not connected."""
+        """Get the underlying client, raising if not connected.
+
+        Returns:
+            The connected ProtectApiClient instance.
+
+        Raises:
+            RuntimeError: If client is not connected.
+        """
         if not self._client:
             raise RuntimeError("Client not connected. Call connect() first.")
         return self._client
 
     async def list_cameras(self) -> list[CameraInfo]:
-        """List all cameras (adopted and unadopted)."""
-        cameras = []
+        """List all cameras (adopted and unadopted).
+
+        Returns:
+            List of CameraInfo objects for all cameras.
+        """
+        cameras: list[CameraInfo] = []
         for camera in self.client.bootstrap.cameras.values():
-            cameras.append(CameraInfo.from_camera(camera))
+            cameras.append(camera_info_from_protect(camera))
         return cameras
 
     async def get_camera(self, camera_id: str) -> CameraInfo | None:
-        """Get a specific camera by ID."""
+        """Get a specific camera by ID.
+
+        Args:
+            camera_id: The unique camera identifier.
+
+        Returns:
+            CameraInfo if found, None otherwise.
+        """
         camera = self.client.bootstrap.cameras.get(camera_id)
         if camera:
-            return CameraInfo.from_camera(camera)
+            return camera_info_from_protect(camera)
         return None
 
     async def get_camera_by_ip(self, ip_address: str) -> CameraInfo | None:
-        """Get a camera by its IP address."""
+        """Get a camera by its IP address.
+
+        Args:
+            ip_address: Camera IP address to search for.
+
+        Returns:
+            CameraInfo if found, None otherwise.
+        """
         for camera in self.client.bootstrap.cameras.values():
             if hasattr(camera, "host") and camera.host == ip_address:
-                return CameraInfo.from_camera(camera)
+                return camera_info_from_protect(camera)
         return None
 
     async def adopt_camera(self, camera_id: str) -> bool:
@@ -114,6 +156,9 @@ class UnifiProtectClient:
 
         Returns:
             True if adoption was initiated successfully.
+
+        Raises:
+            RuntimeError: If adoption fails.
         """
         try:
             await self.client.adopt_device(ModelType.CAMERA, camera_id)
@@ -129,6 +174,9 @@ class UnifiProtectClient:
 
         Returns:
             True if unadoption was initiated successfully.
+
+        Raises:
+            RuntimeError: If unadoption fails.
         """
         try:
             await self.client.unadopt_device(ModelType.CAMERA, camera_id)
@@ -144,6 +192,9 @@ class UnifiProtectClient:
 
         Returns:
             True if reboot was initiated successfully.
+
+        Raises:
+            RuntimeError: If reboot fails.
         """
         try:
             await self.client.reboot_device(ModelType.CAMERA, camera_id)
@@ -151,27 +202,41 @@ class UnifiProtectClient:
         except Exception as e:
             raise RuntimeError(f"Failed to reboot camera: {e}") from e
 
-    async def get_nvr_info(self) -> dict:
-        """Get NVR information."""
+    async def get_nvr_info(self) -> NvrInfo:
+        """Get NVR information.
+
+        Returns:
+            NvrInfo with NVR details.
+        """
         nvr = self.client.bootstrap.nvr
-        return {
-            "id": nvr.id,
-            "name": nvr.name,
-            "model": str(nvr.model) if nvr.model else "Unknown",
-            "version": nvr.version,
-            "host": nvr.host if hasattr(nvr, "host") else None,
-        }
+        return NvrInfo(
+            id=nvr.id,
+            name=nvr.name,
+            model=str(nvr.model) if nvr.model else "Unknown",
+            version=str(nvr.version) if nvr.version else None,
+            host=str(nvr.host) if hasattr(nvr, "host") and nvr.host else None,
+        )
 
 
 @asynccontextmanager
 async def get_protect_client(
-    config: ProtectConfig, include_unadopted: bool = True
+    config: ProtectConfig,
+    include_unadopted: bool = True,
 ) -> AsyncIterator[UnifiProtectClient]:
     """Context manager for UniFi Protect client.
 
-    Usage:
-        async with get_protect_client(config) as client:
-            cameras = await client.list_cameras()
+    Provides automatic connection management with proper cleanup.
+
+    Args:
+        config: UniFi Protect connection configuration.
+        include_unadopted: Whether to include unadopted devices.
+
+    Yields:
+        Connected UnifiProtectClient instance.
+
+    Example:
+        >>> async with get_protect_client(config) as client:
+        ...     cameras = await client.list_cameras()
     """
     client = UnifiProtectClient(config, include_unadopted)
     try:
