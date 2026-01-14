@@ -4,6 +4,7 @@ This module provides an async client for interacting with UniFi Protect NVRs,
 supporting camera management operations like listing, adoption, and control.
 """
 
+import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -85,14 +86,10 @@ class UnifiProtectClient:
     async def disconnect(self) -> None:
         """Disconnect from UniFi Protect and close the session."""
         if self._client:
-            try:
+            with contextlib.suppress(Exception):
                 await self._client.async_disconnect_ws()
-            except Exception:
-                pass  # Ignore websocket disconnect errors
-            try:
+            with contextlib.suppress(Exception):
                 await self._client.close_session()
-            except Exception:
-                pass  # Ignore session close errors
             self._client = None
 
     @property

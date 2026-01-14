@@ -5,6 +5,7 @@ video profiles, stream management, PTZ control, image settings, and system
 operations through the ONVIF protocol.
 """
 
+import contextlib
 import os
 from datetime import datetime
 from typing import Any
@@ -110,10 +111,8 @@ class OnvifCameraManager:
         """Disconnect from the camera and clean up resources."""
         # Close the ONVIFCamera and its aiohttp sessions
         if self._camera is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._camera.close()
-            except Exception:
-                pass  # Best effort cleanup
 
         self._camera = None
         self._device_service = None
@@ -202,11 +201,14 @@ class OnvifCameraManager:
             if hasattr(caps, "PTZ") and caps.PTZ:
                 capabilities.has_ptz = True
 
-            if hasattr(caps, "Media") and caps.Media:
-                if hasattr(caps.Media, "StreamingCapabilities"):
-                    stream_caps = caps.Media.StreamingCapabilities
-                    if hasattr(stream_caps, "RTPMulticast"):
-                        capabilities.has_audio = True
+            if (
+                hasattr(caps, "Media")
+                and caps.Media
+                and hasattr(caps.Media, "StreamingCapabilities")
+            ):
+                stream_caps = caps.Media.StreamingCapabilities
+                if hasattr(stream_caps, "RTPMulticast"):
+                    capabilities.has_audio = True
 
             if hasattr(caps, "Events") and caps.Events:
                 capabilities.has_events = True
@@ -465,9 +467,7 @@ class OnvifCameraManager:
             velocity["Zoom"]["x"] = -speed
 
         try:
-            await self._ptz_service.ContinuousMove(
-                {"ProfileToken": token, "Velocity": velocity}
-            )
+            await self._ptz_service.ContinuousMove({"ProfileToken": token, "Velocity": velocity})
             return True
         except Exception:
             return False
@@ -487,16 +487,12 @@ class OnvifCameraManager:
         token = profile_token or self._profiles[0].token
 
         try:
-            await self._ptz_service.Stop(
-                {"ProfileToken": token, "PanTilt": True, "Zoom": True}
-            )
+            await self._ptz_service.Stop({"ProfileToken": token, "PanTilt": True, "Zoom": True})
             return True
         except Exception:
             return False
 
-    async def ptz_goto_preset(
-        self, preset_token: str, profile_token: str | None = None
-    ) -> bool:
+    async def ptz_goto_preset(self, preset_token: str, profile_token: str | None = None) -> bool:
         """Move camera to a saved PTZ preset position.
 
         Args:
@@ -512,9 +508,7 @@ class OnvifCameraManager:
         token = profile_token or self._profiles[0].token
 
         try:
-            await self._ptz_service.GotoPreset(
-                {"ProfileToken": token, "PresetToken": preset_token}
-            )
+            await self._ptz_service.GotoPreset({"ProfileToken": token, "PresetToken": preset_token})
             return True
         except Exception:
             return False
@@ -582,9 +576,12 @@ class OnvifCameraManager:
             return None
 
         # Get video source token from first profile if not provided
-        if not video_source_token and self._profiles:
-            if hasattr(self._profiles[0], "VideoSourceConfiguration"):
-                video_source_token = self._profiles[0].VideoSourceConfiguration.SourceToken
+        if (
+            not video_source_token
+            and self._profiles
+            and hasattr(self._profiles[0], "VideoSourceConfiguration")
+        ):
+            video_source_token = self._profiles[0].VideoSourceConfiguration.SourceToken
 
         if not video_source_token:
             return None
@@ -613,11 +610,8 @@ class OnvifCameraManager:
                 wide_dynamic_range=bool(settings.WideDynamicRange.Mode == "ON")
                 if hasattr(settings, "WideDynamicRange") and settings.WideDynamicRange
                 else None,
-                backlight_compensation=bool(
-                    settings.BacklightCompensation.Mode == "ON"
-                )
-                if hasattr(settings, "BacklightCompensation")
-                and settings.BacklightCompensation
+                backlight_compensation=bool(settings.BacklightCompensation.Mode == "ON")
+                if hasattr(settings, "BacklightCompensation") and settings.BacklightCompensation
                 else None,
             )
         except Exception:
@@ -643,9 +637,12 @@ class OnvifCameraManager:
             return False
 
         # Get video source token from first profile if not provided
-        if not video_source_token and self._profiles:
-            if hasattr(self._profiles[0], "VideoSourceConfiguration"):
-                video_source_token = self._profiles[0].VideoSourceConfiguration.SourceToken
+        if (
+            not video_source_token
+            and self._profiles
+            and hasattr(self._profiles[0], "VideoSourceConfiguration")
+        ):
+            video_source_token = self._profiles[0].VideoSourceConfiguration.SourceToken
 
         if not video_source_token:
             return False

@@ -71,3 +71,15 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
 ]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+# Pydantic models use field aliases and settings load from env vars
+reportArgumentType = "warning"
+reportCallIssue = "warning"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.408",
+]

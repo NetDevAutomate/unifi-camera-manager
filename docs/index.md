@@ -99,3 +99,9 @@ graph TB
 - **Python**: 3.12+
 - **Package Manager**: uv (recommended) or pip
 - **Current Version**: See `pyproject.toml`
+
+## License & Acknowledgments
+
+This project is licensed under the **MIT License** - see [LICENSE.md](../LICENSE.md).
+
+Special thanks to the [uiprotect](https://github.com/uilibs/uiprotect) library maintainers for their excellent UniFi Protect API client that made this project possible. See [Acknowledgments](../README.md#acknowledgments) in the README for details.

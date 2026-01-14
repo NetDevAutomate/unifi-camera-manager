@@ -140,7 +140,7 @@ def main_callback(
         str,
         typer.Option(
             "--log-level",
-            help="Log level for all loggers including httpx (DEBUG, INFO, WARNING, ERROR, CRITICAL).",
+            help="Log level for all loggers (DEBUG, INFO, WARNING, ERROR, CRITICAL).",
             envvar="UCAM_LOG_LEVEL",
         ),
     ] = "WARNING",

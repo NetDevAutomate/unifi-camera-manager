@@ -416,6 +416,20 @@ uv run mypy src/
 - **XDG Compliance**: Standard config/data paths via `platformdirs`
 - **Environment Interpolation**: `${VAR}` syntax in config files
 
+## Acknowledgments
+
+### uiprotect
+
+This project relies heavily on [**uiprotect**](https://github.com/uilibs/uiprotect) - an unofficial Python API client for UniFi Protect. Special thanks to the maintainers and contributors of this exceptional library.
+
+The `uiprotect` library has been invaluable for:
+- Understanding the UniFi Protect API structure and authentication
+- Debugging third-party camera adoption and ONVIF integration issues
+- Troubleshooting AI Port connectivity and smart detection features
+- Providing a clean, well-documented async Python interface to Protect
+
+If you're working with UniFi Protect programmatically, `uiprotect` is an essential resource. The quality of documentation, type hints, and overall code structure made integration straightforward and debugging significantly easier.
+
 ## License
 
-MIT
+MIT - See [LICENSE.md](LICENSE.md) for details.
