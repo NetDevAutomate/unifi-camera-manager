@@ -250,14 +250,14 @@ async def run_auth_tests(ip_address: str, port: int = 80) -> list[AuthTestResult
     results: list[AuthTestResult] = []
     creds = get_credential_sets()
 
-    print(f"\n{'='*70}")
-    print(f"AXIS Authentication Test Harness")
+    print(f"\n{'=' * 70}")
+    print("AXIS Authentication Test Harness")
     print(f"Target: {base_url}")
     print(f"Credential sets to test: {len(creds)}")
     print(f"Endpoints to test: {len(AXIS_ENDPOINTS)}")
-    print(f"Auth types: digest, basic")
+    print("Auth types: digest, basic")
     print(f"Total tests: {len(creds) * len(AXIS_ENDPOINTS) * 2}")
-    print(f"{'='*70}\n")
+    print(f"{'=' * 70}\n")
 
     async with httpx.AsyncClient(verify=False) as client:
         for endpoint in AXIS_ENDPOINTS:
@@ -304,7 +304,11 @@ def analyze_results(results: list[AuthTestResult]) -> dict[str, Any]:
             "total_tests": len(api_results),
             "successful": len(successful),
             "working_combinations": [
-                {"credential": r.credential_source, "auth_type": r.auth_type, "username": r.username}
+                {
+                    "credential": r.credential_source,
+                    "auth_type": r.auth_type,
+                    "username": r.username,
+                }
                 for r in successful
             ],
         }
@@ -313,10 +317,7 @@ def analyze_results(results: list[AuthTestResult]) -> dict[str, Any]:
         if successful:
             # Prefer digest auth over basic
             digest_success = [r for r in successful if r.auth_type == "digest"]
-            if digest_success:
-                rec = digest_success[0]
-            else:
-                rec = successful[0]
+            rec = digest_success[0] if digest_success else successful[0]
 
             analysis["recommendations"][api_name] = {
                 "credential_source": rec.credential_source,
@@ -352,18 +353,18 @@ def analyze_results(results: list[AuthTestResult]) -> dict[str, Any]:
 
 def print_analysis(analysis: dict[str, Any]) -> None:
     """Print analysis results in a readable format."""
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("ANALYSIS RESULTS")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
-    print(f"\nSummary:")
+    print("\nSummary:")
     print(f"  Total tests: {analysis['summary']['total_tests']}")
     print(f"  Successful:  {analysis['summary']['successful']}")
     print(f"  Failed:      {analysis['summary']['failed']}")
 
-    print(f"\n{'-'*70}")
+    print(f"\n{'-' * 70}")
     print("Recommendations by Endpoint:")
-    print(f"{'-'*70}")
+    print(f"{'-' * 70}")
 
     for api_name, rec in analysis["recommendations"].items():
         if rec.get("error"):
@@ -375,9 +376,9 @@ def print_analysis(analysis: dict[str, Any]) -> None:
             print(f"    Auth type:  {rec['auth_type']}")
             print(f"    Username:   {rec['username']}")
 
-    print(f"\n{'-'*70}")
+    print(f"\n{'-' * 70}")
     print("Credential Performance:")
-    print(f"{'-'*70}")
+    print(f"{'-' * 70}")
 
     for cred_name, stats in analysis["by_credential"].items():
         print(f"\n  {cred_name}:")

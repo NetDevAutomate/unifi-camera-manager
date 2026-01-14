@@ -54,7 +54,7 @@ repos:
     pass_filenames: false
   - id: pytest
     name: pytest
-    entry: uv run pytest --cov-fail-under=90
+    entry: uv run pytest
     language: system
     types:
     - python

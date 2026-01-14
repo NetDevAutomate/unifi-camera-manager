@@ -24,3 +24,43 @@ wheels/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Agentic Agent Files
+.claude/
+CLAUDE.md
+.kiro/
+.crush/
+.opencode/
+.cursor/
+.windsurf/
+.continue/
+.aider/
+.copilot/
+.speckit/
+.openspec/
+
+# IDE Files
+.vscode/
+.idea/
+*.code-workspace
+.zed/
+
+# Agentic Agent Files
+.claude/
+CLAUDE.md
+.kiro/
+.crush/
+.opencode/
+.cursor/
+.windsurf/
+.continue/
+.aider/
+.copilot/
+.speckit/
+.openspec/
+
+# IDE Files
+.vscode/
+.idea/
+*.code-workspace
+.zed/

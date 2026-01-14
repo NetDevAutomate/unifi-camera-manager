@@ -76,8 +76,11 @@ exclude_lines = [
 pythonVersion = "3.12"
 typeCheckingMode = "basic"
 # Pydantic models use field aliases and settings load from env vars
-reportArgumentType = "warning"
-reportCallIssue = "warning"
+# These are disabled because pyright doesn't understand Pydantic's:
+# - populate_by_name=True (field aliases)
+# - BaseSettings _env_file parameter
+reportArgumentType = false
+reportCallIssue = false
 
 [dependency-groups]
 dev = [

@@ -85,9 +85,7 @@ class TestSystemInfo:
 class TestOnvifCameraInfo:
     """Tests for OnvifCameraInfo model."""
 
-    def test_create_accessible_camera(
-        self, sample_onvif_camera_info: OnvifCameraInfo
-    ) -> None:
+    def test_create_accessible_camera(self, sample_onvif_camera_info: OnvifCameraInfo) -> None:
         """Test creating an accessible OnvifCameraInfo."""
         assert sample_onvif_camera_info.is_accessible is True
         assert sample_onvif_camera_info.error is None
@@ -210,9 +208,7 @@ class TestPTZPreset:
 class TestImageSettings:
     """Tests for ImageSettings model."""
 
-    def test_create_valid_image_settings(
-        self, sample_image_settings: ImageSettings
-    ) -> None:
+    def test_create_valid_image_settings(self, sample_image_settings: ImageSettings) -> None:
         """Test creating valid ImageSettings."""
         assert sample_image_settings.brightness == 50.0
         assert sample_image_settings.contrast == 50.0
@@ -239,9 +235,7 @@ class TestImageSettings:
 class TestCameraCapabilities:
     """Tests for CameraCapabilities model."""
 
-    def test_create_valid_capabilities(
-        self, sample_capabilities: CameraCapabilities
-    ) -> None:
+    def test_create_valid_capabilities(self, sample_capabilities: CameraCapabilities) -> None:
         """Test creating valid CameraCapabilities."""
         assert sample_capabilities.has_ptz is True
         assert sample_capabilities.has_audio is True

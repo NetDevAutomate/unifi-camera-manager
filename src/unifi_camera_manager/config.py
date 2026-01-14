@@ -288,8 +288,11 @@ def interpolate_dict(data: dict[str, Any]) -> dict[str, Any]:
             result[key] = interpolate_dict(value)
         elif isinstance(value, list):
             result[key] = [
-                interpolate_dict(item) if isinstance(item, dict) else
-                interpolate_env_vars(item) if isinstance(item, str) else item
+                interpolate_dict(item)
+                if isinstance(item, dict)
+                else interpolate_env_vars(item)
+                if isinstance(item, str)
+                else item
                 for item in value
             ]
         else:

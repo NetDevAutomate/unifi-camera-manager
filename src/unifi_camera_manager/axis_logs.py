@@ -21,6 +21,29 @@ from .logging_config import log_debug
 from .models import LogEntry, LogLevel, LogReport, LogType
 
 
+def _parse_log_level(level_str: str) -> LogLevel:
+    """Convert a log level string to LogLevel enum.
+
+    Args:
+        level_str: Log level string from syslog (e.g., "INFO", "WARNING").
+
+    Returns:
+        Matching LogLevel enum value, or LogLevel.INFO as default.
+    """
+    level_lower = level_str.lower()
+    try:
+        return LogLevel(level_lower)
+    except ValueError:
+        # Map common syslog levels to our enum
+        mappings = {
+            "warn": LogLevel.WARNING,
+            "err": LogLevel.ERROR,
+            "crit": LogLevel.CRITICAL,
+            "emerg": LogLevel.EMERGENCY,
+        }
+        return mappings.get(level_lower, LogLevel.INFO)
+
+
 class ServerReportMode(str, Enum):
     """Server report output modes."""
 
@@ -79,7 +102,7 @@ def parse_log_line(line: str) -> LogEntry | None:
         return LogEntry(
             timestamp=timestamp,
             hostname=groups["hostname"],
-            level=groups["level"],
+            level=_parse_log_level(groups["level"]),
             process=groups.get("process") or "",
             pid=int(groups["pid"]) if groups.get("pid") else None,
             message=groups["message"],

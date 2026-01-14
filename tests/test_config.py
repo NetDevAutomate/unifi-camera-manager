@@ -200,9 +200,7 @@ class TestProtectConfig:
 class TestConfigFileLoading:
     """Tests for configuration file loading functions."""
 
-    def test_find_config_file_explicit_path(
-        self, sample_config_yaml: Path
-    ) -> None:
+    def test_find_config_file_explicit_path(self, sample_config_yaml: Path) -> None:
         """Test find_config_file with explicit path."""
         found = find_config_file(sample_config_yaml)
         assert found == sample_config_yaml
@@ -210,9 +208,10 @@ class TestConfigFileLoading:
     def test_find_config_file_not_found(self, tmp_path: Path) -> None:
         """Test find_config_file raises when file not found."""
         nonexistent = tmp_path / "nonexistent.yaml"
-        with patch(
-            "unifi_camera_manager.config.get_config_dir", return_value=tmp_path
-        ), pytest.raises(FileNotFoundError):
+        with (
+            patch("unifi_camera_manager.config.get_config_dir", return_value=tmp_path),
+            pytest.raises(FileNotFoundError),
+        ):
             find_config_file(nonexistent)
 
     def test_load_raw_config(self, sample_config_yaml: Path) -> None:
@@ -255,9 +254,7 @@ class TestCameraLookup:
         assert camera is not None
         assert camera.ip_address == "192.168.1.100"
 
-    def test_get_camera_by_name_case_insensitive(
-        self, sample_config_yaml: Path
-    ) -> None:
+    def test_get_camera_by_name_case_insensitive(self, sample_config_yaml: Path) -> None:
         """Test camera lookup is case-insensitive."""
         load_raw_config.cache_clear()
         camera = get_camera_by_name("front door", sample_config_yaml)

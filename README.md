@@ -365,7 +365,8 @@ unifi-camera-manager/
     ├── conftest.py             # Shared pytest fixtures
     ├── test_config.py          # Configuration tests
     ├── test_models.py          # Model validation tests
-    └── test_axis_logs.py       # Log retrieval tests
+    ├── test_axis_logs.py       # Log retrieval tests
+    └── test_axis_auth.py       # Auth credential resolution tests
 ```
 
 ## Development

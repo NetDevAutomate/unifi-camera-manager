@@ -30,8 +30,7 @@ class TestSyslogPattern:
     def test_matches_full_syslog_format(self) -> None:
         """Test matching a complete AXIS syslog line."""
         line = (
-            "2025-01-11T19:47:42.861+00:00 axis-camera "
-            "[ INFO    ] systemd[1]: Started Session 42"
+            "2025-01-11T19:47:42.861+00:00 axis-camera [ INFO    ] systemd[1]: Started Session 42"
         )
         match = SYSLOG_PATTERN.match(line)
         assert match is not None
@@ -211,9 +210,7 @@ class TestAxisLogClient:
 
         assert client._client is None
 
-    def test_find_log_content_system(
-        self, client_config: OnvifCameraConfig
-    ) -> None:
+    def test_find_log_content_system(self, client_config: OnvifCameraConfig) -> None:
         """Test _find_log_content for system logs."""
         client = AxisLogClient(client_config)
         log_files = {
@@ -225,9 +222,7 @@ class TestAxisLogClient:
         assert "system log content" in content
         assert "access content" not in content
 
-    def test_find_log_content_access(
-        self, client_config: OnvifCameraConfig
-    ) -> None:
+    def test_find_log_content_access(self, client_config: OnvifCameraConfig) -> None:
         """Test _find_log_content for access logs."""
         client = AxisLogClient(client_config)
         log_files = {
@@ -238,9 +233,7 @@ class TestAxisLogClient:
         assert "access content" in content
         assert "system log content" not in content
 
-    def test_find_log_content_all(
-        self, client_config: OnvifCameraConfig
-    ) -> None:
+    def test_find_log_content_all(self, client_config: OnvifCameraConfig) -> None:
         """Test _find_log_content for all logs."""
         client = AxisLogClient(client_config)
         log_files = {
@@ -279,9 +272,7 @@ class TestAxisLogClient:
             assert len(report.entries) <= 10
 
     @pytest.mark.asyncio
-    async def test_get_system_logs(
-        self, client_config: OnvifCameraConfig
-    ) -> None:
+    async def test_get_system_logs(self, client_config: OnvifCameraConfig) -> None:
         """Test get_system_logs convenience method."""
         with patch.object(AxisLogClient, "get_logs", new_callable=AsyncMock) as mock_logs:
             mock_logs.return_value = MagicMock()
@@ -292,9 +283,7 @@ class TestAxisLogClient:
             mock_logs.assert_called_once_with(LogType.SYSTEM, 50)
 
     @pytest.mark.asyncio
-    async def test_get_access_logs(
-        self, client_config: OnvifCameraConfig
-    ) -> None:
+    async def test_get_access_logs(self, client_config: OnvifCameraConfig) -> None:
         """Test get_access_logs convenience method."""
         with patch.object(AxisLogClient, "get_logs", new_callable=AsyncMock) as mock_logs:
             mock_logs.return_value = MagicMock()
@@ -305,9 +294,7 @@ class TestAxisLogClient:
             mock_logs.assert_called_once_with(LogType.ACCESS, 50)
 
     @pytest.mark.asyncio
-    async def test_get_audit_logs(
-        self, client_config: OnvifCameraConfig
-    ) -> None:
+    async def test_get_audit_logs(self, client_config: OnvifCameraConfig) -> None:
         """Test get_audit_logs convenience method."""
         with patch.object(AxisLogClient, "get_logs", new_callable=AsyncMock) as mock_logs:
             mock_logs.return_value = MagicMock()
